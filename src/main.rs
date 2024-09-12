@@ -8,7 +8,7 @@ use pest_derive::Parser;
 pub struct CSVParser;
 
 fn main() {
-    let unparsed_file = fs::read_to_string("other.srt").expect("cannot read file");
+    let unparsed_file = fs::read_to_string("sample.srt").expect("cannot read file");
 
     print!("{}", unparsed_file);
 
