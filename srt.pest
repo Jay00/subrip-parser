@@ -24,10 +24,14 @@ WHITESPACE = _{ " " }
 identifier = @{ ASCII_DIGIT+ }
 timecode = {(ASCII_DIGIT)+ ~ ":" ~ (ASCII_DIGIT){2} ~ ":" ~ (ASCII_DIGIT){2} ~ "," ~ (ASCII_DIGIT){3} }
 startstop = { #start = timecode ~ "-->" ~ #stop = timecode }
-content = { ANY+ }
+char = { ASCII_ALPHANUMERIC | "." | "_" | "/" }
+content = { (!NEWLINE ~ ANY)* }
 
 header = { identifier ~ NEWLINE ~ startstop ~ NEWLINE }
 file = { SOI ~ 
-    ((header | content)? ~ NEWLINE)* ~
+    ((startstop | identifier | content)? ~ NEWLINE)* ~
     EOI }
 
+// file = { SOI ~ 
+//         ((header | content)? ~ NEWLINE)* ~
+//         EOI }
