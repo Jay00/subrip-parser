@@ -13,14 +13,38 @@ pub struct TimeCode {
 
 impl TimeCode {
     fn build_from_str(timecode: &str) -> TimeCode {
-        TimeCode { milliseconds: 0 }
+        let mut mils: i32 = 0;
+        if timecode.contains(",") {
+            // from "00:03:15,167"
+            let x: Vec<&str> = timecode.split(",").collect();
+            mils = x.last().unwrap().parse::<i32>().unwrap();
+
+            let t: Vec<&str> = x.first().unwrap().split(":").collect();
+
+            match t.len() {
+                2 => {
+                    let seconds = t[2].parse::<i32>().unwrap();
+                    mils = (seconds * 1000) + mils;
+
+                    let minutes = t[1].parse::<i32>().unwrap();
+                    mils = (minutes * 1000 * 60) + mils;
+
+                    let hours = t[0].parse::<i32>().unwrap();
+                    mils = (hours * 1000 * 60 * 60) + mils;
+                }
+                1 => {}
+                0 => {}
+                _ => {}
+            }
+        }
+        TimeCode { milliseconds: mils }
     }
 }
 
 pub struct SRTClip {
     pub identifier: Option<i32>,
     pub start: TimeCode,
-    pub end: TimeCode,
+    pub stop: TimeCode,
     pub content: String,
 }
 
@@ -42,7 +66,7 @@ fn main() {
         match line.as_rule() {
             Rule::clip => {
                 // New Clip
-                let mut identifier: Option<i32>;
+                let mut identifier: Option<i32> = None;
                 let mut start: TimeCode;
                 let mut stop: TimeCode;
                 let mut content: String;
@@ -64,18 +88,30 @@ fn main() {
 
                             let start_str: &str = startstop.next().unwrap().as_str(); // start
                             let stop_str: &str = startstop.next().unwrap().as_str();
+
+                            start = TimeCode::build_from_str(start_str);
+                            stop = TimeCode::build_from_str(stop_str);
                             // stop
 
                             // println!("id: {}, start: {}, stop: {}", identifier, start, stop);
                         }
                         Rule::content => {
-                            let content = r.as_span().as_str();
+                            content = r.as_span().as_str().to_string();
                             println!("{}", content);
                         }
                         Rule::EOI => (),
                         _ => unreachable!(),
                     }
                 }
+
+                let c = SRTClip {
+                    identifier,
+                    start,
+                    stop,
+                    content,
+                };
+
+                clips.push(c);
             }
             // Rule::property => {
             //     let mut inner_rules = line.into_inner(); // { name ~ "=" ~ value }
