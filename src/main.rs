@@ -7,18 +7,23 @@ use pest_derive::Parser;
 #[grammar = "srt.pest"]
 pub struct SRTParser;
 
+pub struct TimeSegments {
+    pub hours: i32,
+    pub minutes: i32,
+    pub seconds: i32,
+    pub milliseconds: i32,
+}
+
 #[derive(Debug)]
 pub struct TimeCode {
-    milliseconds: i32,
+    pub milliseconds: i32,
 }
 
 impl TimeCode {
-    fn to_string(self) -> String {
-        let mils_per_hour = 1000 * 60 * 60;
-        let mils_per_minute = 1000 * 60;
+    fn get_time_segments(self) -> TimeSegments {
+        let mils_per_hour = 3600000;
+        let mils_per_minute = 60000;
         let mils_per_second = 1000;
-
-        println!("Total MILS: {}", self.milliseconds);
 
         let mut remainder = self.milliseconds;
         let h = remainder / mils_per_hour;
@@ -33,10 +38,21 @@ impl TimeCode {
 
         let mils = remainder - (s * mils_per_second);
 
-        let s = format!("{:02}:{:02}:{:02},{:02}", h, m, s, mils);
-        // println!("Output: {}", s);
+        TimeSegments {
+            hours: h,
+            minutes: m,
+            seconds: s,
+            milliseconds: mils,
+        }
+    }
 
-        return s;
+    fn to_string(self) -> String {
+        let segments = self.get_time_segments();
+
+        format!(
+            "{:02}:{:02}:{:02},{:02}",
+            segments.hours, segments.minutes, segments.seconds, segments.milliseconds
+        )
     }
 
     fn build_from_str(timecode: &str) -> TimeCode {
@@ -54,21 +70,42 @@ impl TimeCode {
 
             let minutes = t[1].parse::<i32>().unwrap();
             // println!("Minutes: {}", minutes);
-            mils = (minutes * 1000 * 60) + mils;
+            mils = (minutes * 60000) + mils;
 
             let hours = t[0].parse::<i32>().unwrap();
-            mils = (hours * 1000 * 60 * 60) + mils;
+            mils = (hours * 3600000) + mils;
         }
         TimeCode { milliseconds: mils }
     }
 }
 
 #[derive(Debug)]
-pub struct SRTClip {
+pub struct Subtitle {
     pub identifier: Option<i32>,
     pub start: TimeCode,
     pub stop: TimeCode,
     pub content: String,
+}
+
+impl Subtitle {
+    fn as_subrip(self) -> String {
+        if let Some(ident) = self.identifier {
+            return format!(
+                "{}\n{} --> {}\n{}",
+                ident,
+                self.start.to_string(),
+                self.stop.to_string(),
+                self.content
+            );
+        } else {
+            return format!(
+                "{} --> {}\n{}",
+                self.start.to_string(),
+                self.stop.to_string(),
+                self.content
+            );
+        }
+    }
 }
 
 fn main() {
@@ -83,7 +120,7 @@ fn main() {
 
     // println!("{:?}", file);
 
-    let mut clips: Vec<SRTClip> = vec![];
+    let mut subtitles: Vec<Subtitle> = vec![];
 
     for line in file.into_inner() {
         match line.as_rule() {
@@ -94,7 +131,7 @@ fn main() {
                 let mut stop_str: &str = "";
                 let mut content: &str = "";
 
-                let mut header_and_content = line.into_inner(); // { header | content }
+                let header_and_content = line.into_inner(); // { header | content }
 
                 for r in header_and_content {
                     match r.as_rule() {
@@ -118,7 +155,7 @@ fn main() {
                         }
                         Rule::content => {
                             content = r.as_span().as_str();
-                            println!("{}", content);
+                            // println!("{}", content);
                         }
                         Rule::EOI => (),
                         _ => unreachable!(),
@@ -130,29 +167,23 @@ fn main() {
 
                 // println!("{} = {}", &start_str, start_string);
 
-                let c = SRTClip {
+                let c = Subtitle {
                     identifier,
                     start,
                     stop,
                     content: content.to_string(),
                 };
 
-                clips.push(c);
+                subtitles.push(c);
             }
-            // Rule::property => {
-            //     let mut inner_rules = line.into_inner(); // { name ~ "=" ~ value }
 
-            //     let name: &str = inner_rules.next().unwrap().as_str();
-            //     let value: &str = inner_rules.next().unwrap().as_str();
-
-            //     // Insert an empty inner hash map if the outer hash map hasn't
-            //     // seen this section name before.
-            //     let section = properties.entry(current_section_name).or_default();
-            //     section.insert(name, value);
-            // }
             Rule::EOI => (),
             _ => unreachable!(),
         }
+    }
+
+    for s in subtitles {
+        println!("{}", s.as_subrip());
     }
 
     // let unsuccessful_parse = CSVParser::parse(Rule::field, "this is not a number");
