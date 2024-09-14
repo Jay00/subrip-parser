@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fs};
+use std::fs;
 
 use pest::Parser;
 use pest_derive::Parser;
@@ -7,11 +7,38 @@ use pest_derive::Parser;
 #[grammar = "srt.pest"]
 pub struct SRTParser;
 
+#[derive(Debug)]
 pub struct TimeCode {
     milliseconds: i32,
 }
 
 impl TimeCode {
+    fn to_string(self) -> String {
+        let mils_per_hour = 1000 * 60 * 60;
+        let mils_per_minute = 1000 * 60;
+        let mils_per_second = 1000;
+
+        println!("Total MILS: {}", self.milliseconds);
+
+        let mut remainder = self.milliseconds;
+        let h = remainder / mils_per_hour;
+
+        remainder = remainder - (h * mils_per_hour);
+
+        let m = remainder / mils_per_minute;
+
+        remainder = remainder - (m * mils_per_minute);
+
+        let s = remainder / mils_per_second;
+
+        let mils = remainder - (s * mils_per_second);
+
+        let s = format!("{:02}:{:02}:{:02},{:02}", h, m, s, mils);
+        // println!("Output: {}", s);
+
+        return s;
+    }
+
     fn build_from_str(timecode: &str) -> TimeCode {
         let mut mils: i32 = 0;
         if timecode.contains(",") {
@@ -21,26 +48,22 @@ impl TimeCode {
 
             let t: Vec<&str> = x.first().unwrap().split(":").collect();
 
-            match t.len() {
-                2 => {
-                    let seconds = t[2].parse::<i32>().unwrap();
-                    mils = (seconds * 1000) + mils;
+            let seconds = t[2].parse::<i32>().unwrap();
+            // println!("Seconds: {}", seconds);
+            mils = (seconds * 1000) + mils;
 
-                    let minutes = t[1].parse::<i32>().unwrap();
-                    mils = (minutes * 1000 * 60) + mils;
+            let minutes = t[1].parse::<i32>().unwrap();
+            // println!("Minutes: {}", minutes);
+            mils = (minutes * 1000 * 60) + mils;
 
-                    let hours = t[0].parse::<i32>().unwrap();
-                    mils = (hours * 1000 * 60 * 60) + mils;
-                }
-                1 => {}
-                0 => {}
-                _ => {}
-            }
+            let hours = t[0].parse::<i32>().unwrap();
+            mils = (hours * 1000 * 60 * 60) + mils;
         }
         TimeCode { milliseconds: mils }
     }
 }
 
+#[derive(Debug)]
 pub struct SRTClip {
     pub identifier: Option<i32>,
     pub start: TimeCode,
@@ -67,9 +90,9 @@ fn main() {
             Rule::clip => {
                 // New Clip
                 let mut identifier: Option<i32> = None;
-                let mut start: TimeCode;
-                let mut stop: TimeCode;
-                let mut content: String;
+                let mut start_str: &str = "";
+                let mut stop_str: &str = "";
+                let mut content: &str = "";
 
                 let mut header_and_content = line.into_inner(); // { header | content }
 
@@ -86,17 +109,15 @@ fn main() {
 
                             let mut startstop = header.next().unwrap().into_inner(); //
 
-                            let start_str: &str = startstop.next().unwrap().as_str(); // start
-                            let stop_str: &str = startstop.next().unwrap().as_str();
+                            start_str = startstop.next().unwrap().as_str(); // start
+                            stop_str = startstop.next().unwrap().as_str();
 
-                            start = TimeCode::build_from_str(start_str);
-                            stop = TimeCode::build_from_str(stop_str);
                             // stop
 
                             // println!("id: {}, start: {}, stop: {}", identifier, start, stop);
                         }
                         Rule::content => {
-                            content = r.as_span().as_str().to_string();
+                            content = r.as_span().as_str();
                             println!("{}", content);
                         }
                         Rule::EOI => (),
@@ -104,11 +125,16 @@ fn main() {
                     }
                 }
 
+                let start = TimeCode::build_from_str(&start_str);
+                let stop = TimeCode::build_from_str(stop_str);
+
+                // println!("{} = {}", &start_str, start_string);
+
                 let c = SRTClip {
                     identifier,
                     start,
                     stop,
-                    content,
+                    content: content.to_string(),
                 };
 
                 clips.push(c);
