@@ -1,4 +1,7 @@
-use std::fs;
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
 
 use pest::Parser;
 use pest_derive::Parser;
@@ -105,6 +108,22 @@ impl Subtitle {
                 self.content
             );
         }
+    }
+}
+
+#[derive(Debug)]
+pub struct Subtitles {
+    pub subtitles: Vec<Subtitle>,
+}
+
+impl Subtitles {
+    fn from_srt(path: PathBuf) -> Subtitles {
+        let unparsed_file = fs::read_to_string(path).expect("cannot read file");
+
+        let file = SRTParser::parse(Rule::file, &unparsed_file)
+            .expect("unsuccessful parse") // unwrap the parse result
+            .next()
+            .unwrap(); // get and unwrap the `file` rule; never fails
     }
 }
 
