@@ -6,5 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-pest = "2.7.12"
-pest_derive = { version = "2.7.12", features = ["grammar-extras"] }
+pest = "2.7.14"
+pest_derive = { version = "2.7.14", features = ["grammar-extras"] }
+docx-rs = "0.4.17"
+docx-rust = "0.1.8"

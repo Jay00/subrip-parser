@@ -1,15 +1,13 @@
-
-
 WHITESPACE = _{ " " }
 
-identifier = @{ ASCII_DIGIT+ }
+identifier = @{ ASCII_DIGIT* ~ (NEWLINE) }
 timecode = {(ASCII_DIGIT)+ ~ ":" ~ (ASCII_DIGIT){2} ~ ":" ~ (ASCII_DIGIT){2} ~ "," ~ (ASCII_DIGIT){3} }
 startstop = { #start = timecode ~ "-->" ~ #stop = timecode }
 // char = { ASCII_ALPHANUMERIC | "." | "_" | "/" }
-line = { (!NEWLINE ~ !identifier ~ ANY)* }
+line = { ( !identifier ~ ANY)* }
 
 content = { line ~ (NEWLINE ~ line)* }
-header = { identifier ~ NEWLINE ~ startstop }
+header = { identifier ~ startstop }
 
 clip = {  header ~ NEWLINE ~ content }
 

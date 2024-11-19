@@ -1,8 +1,14 @@
 use std::{
-    fs,
+    fs, isize,
     path::{Path, PathBuf},
 };
 
+use docx_rust::{
+    document::{Paragraph, Run, TextSpace},
+    formatting::{CharacterProperty, JustificationVal, ParagraphProperty},
+    styles::{DefaultStyle, Style, StyleType},
+    Docx, DocxResult,
+};
 use pest::Parser;
 use pest_derive::Parser;
 
@@ -91,6 +97,9 @@ pub struct Subtitle {
 }
 
 impl Subtitle {
+    fn timestamp(self) -> String {
+        return format!("{} --> {}", self.start.to_string(), self.stop.to_string());
+    }
     fn as_subrip(self) -> String {
         if let Some(ident) = self.identifier {
             return format!(
@@ -112,99 +121,153 @@ impl Subtitle {
 }
 
 #[derive(Debug)]
-pub struct Subtitles {
+pub struct Document {
     pub subtitles: Vec<Subtitle>,
 }
 
-impl Subtitles {
-    fn from_srt(path: PathBuf) -> Subtitles {
+impl Document {
+    fn from_srt(path: PathBuf) -> Document {
         let unparsed_file = fs::read_to_string(path).expect("cannot read file");
 
         let file = SRTParser::parse(Rule::file, &unparsed_file)
             .expect("unsuccessful parse") // unwrap the parse result
             .next()
             .unwrap(); // get and unwrap the `file` rule; never fails
+
+        let mut subtitles: Vec<Subtitle> = vec![];
+
+        for line in file.into_inner() {
+            match line.as_rule() {
+                Rule::clip => {
+                    // New Clip
+                    let mut identifier: Option<i32> = None;
+                    let mut start_str: &str = "";
+                    let mut stop_str: &str = "";
+                    let mut content: &str = "";
+
+                    let header_and_content = line.into_inner(); // { header | content }
+
+                    for r in header_and_content {
+                        match r.as_rule() {
+                            Rule::header => {
+                                let mut header = r.into_inner();
+
+                                let identifier_str: &str = header.next().unwrap().as_str(); // identifier
+                                let i = identifier_str.parse::<i32>();
+                                if let Ok(foo) = i {
+                                    identifier = Some(foo);
+                                }
+
+                                let mut startstop = header.next().unwrap().into_inner(); //
+
+                                start_str = startstop.next().unwrap().as_str(); // start
+                                stop_str = startstop.next().unwrap().as_str();
+
+                                // stop
+
+                                // println!("id: {}, start: {}, stop: {}", identifier, start, stop);
+                            }
+                            Rule::content => {
+                                content = r.as_span().as_str();
+                                // println!("{}", content);
+                            }
+                            Rule::EOI => (),
+                            _ => unreachable!(),
+                        }
+                    }
+
+                    let start = TimeCode::build_from_str(&start_str);
+                    let stop = TimeCode::build_from_str(stop_str);
+
+                    // println!("{} = {}", &start_str, start_string);
+
+                    let c = Subtitle {
+                        identifier,
+                        start,
+                        stop,
+                        content: content.to_string(),
+                    };
+
+                    subtitles.push(c);
+                }
+
+                Rule::EOI => (),
+                _ => unreachable!(),
+            }
+        }
+
+        return Document {
+            subtitles: subtitles,
+        };
+    }
+
+    fn to_docx(self) {
+        // Make word documents form self
+        let _res = make_document(self);
     }
 }
 
+pub fn make_document(doc: Document) -> DocxResult<()> {
+    // Create an empty docx
+    let mut docx = Docx::default();
+
+    let size: isize = 20;
+    // Create a new paragraph style called `TestStyle`
+    docx.styles.push(
+        Style::new(StyleType::Paragraph, "timestamp")
+            .name("Time Stamp")
+            .character(CharacterProperty::default().color(0xA6A6A6).size(size)),
+    );
+    // Main Content Style
+    docx.styles.push(
+        Style::new(StyleType::Paragraph, "maincontent")
+            .name("Main Content")
+            .character(CharacterProperty::default()), // override the default text color
+    );
+
+    let mut paragraphs: Vec<Paragraph> = vec![];
+
+    for s in doc.subtitles {
+        let content = s.content.clone();
+        let timestamp = s.timestamp();
+
+        let tpar = Paragraph::default()
+            .property(
+                ParagraphProperty::default().style_id("timestamp"), // inherites from `TestStyle`
+                                                                    // .justification(JustificationVal::Start),
+            )
+            .push(
+                Run::default()
+                    // .property(CharacterProperty::default())
+                    .push_text(timestamp),
+            );
+        paragraphs.push(tpar);
+
+        let cpar = Paragraph::default()
+            .property(
+                ParagraphProperty::default().style_id("maincontent"), // inherites from `TestStyle`
+                                                                      // .justification(JustificationVal::Start),
+            )
+            .push(
+                Run::default()
+                    // .property(CharacterProperty::default())
+                    .push_text(content),
+            );
+        paragraphs.push(cpar)
+    }
+    // d.add_paragraph(paragraphs);
+    paragraphs.into_iter().for_each(|par| {
+        docx.document.push(par);
+    });
+
+    docx.write_file("hello_world.docx")?;
+
+    Ok(())
+}
+
 fn main() {
-    let unparsed_file = fs::read_to_string("sample.srt").expect("cannot read file");
+    let p = PathBuf::from("sample.srt");
+    let doc = Document::from_srt(p);
 
-    print!("{}", unparsed_file);
-
-    let file = SRTParser::parse(Rule::file, &unparsed_file)
-        .expect("unsuccessful parse") // unwrap the parse result
-        .next()
-        .unwrap(); // get and unwrap the `file` rule; never fails
-
-    // println!("{:?}", file);
-
-    let mut subtitles: Vec<Subtitle> = vec![];
-
-    for line in file.into_inner() {
-        match line.as_rule() {
-            Rule::clip => {
-                // New Clip
-                let mut identifier: Option<i32> = None;
-                let mut start_str: &str = "";
-                let mut stop_str: &str = "";
-                let mut content: &str = "";
-
-                let header_and_content = line.into_inner(); // { header | content }
-
-                for r in header_and_content {
-                    match r.as_rule() {
-                        Rule::header => {
-                            let mut header = r.into_inner();
-
-                            let identifier_str: &str = header.next().unwrap().as_str(); // identifier
-                            let i = identifier_str.parse::<i32>();
-                            if let Ok(foo) = i {
-                                identifier = Some(foo);
-                            }
-
-                            let mut startstop = header.next().unwrap().into_inner(); //
-
-                            start_str = startstop.next().unwrap().as_str(); // start
-                            stop_str = startstop.next().unwrap().as_str();
-
-                            // stop
-
-                            // println!("id: {}, start: {}, stop: {}", identifier, start, stop);
-                        }
-                        Rule::content => {
-                            content = r.as_span().as_str();
-                            // println!("{}", content);
-                        }
-                        Rule::EOI => (),
-                        _ => unreachable!(),
-                    }
-                }
-
-                let start = TimeCode::build_from_str(&start_str);
-                let stop = TimeCode::build_from_str(stop_str);
-
-                // println!("{} = {}", &start_str, start_string);
-
-                let c = Subtitle {
-                    identifier,
-                    start,
-                    stop,
-                    content: content.to_string(),
-                };
-
-                subtitles.push(c);
-            }
-
-            Rule::EOI => (),
-            _ => unreachable!(),
-        }
-    }
-
-    for s in subtitles {
-        println!("{}", s.as_subrip());
-    }
-
-    // let unsuccessful_parse = CSVParser::parse(Rule::field, "this is not a number");
-    // println!("{:?}", unsuccessful_parse);
+    doc.to_docx();
 }
