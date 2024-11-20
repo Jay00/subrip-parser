@@ -266,7 +266,7 @@ pub fn make_document(doc: Document) -> DocxResult<()> {
 }
 
 fn main() {
-    let p = PathBuf::from("sample.srt");
+    let p = PathBuf::from("1.srt");
     let doc = Document::from_srt(p);
 
     doc.to_docx();

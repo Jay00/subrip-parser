@@ -1,25 +1,22 @@
 WHITESPACE = _{ " " }
 
-identifier = @{ ASCII_DIGIT* ~ (NEWLINE) }
+
+identifier = { ASCII_DIGIT+ }
+
 timecode = {(ASCII_DIGIT)+ ~ ":" ~ (ASCII_DIGIT){2} ~ ":" ~ (ASCII_DIGIT){2} ~ "," ~ (ASCII_DIGIT){3} }
 startstop = { #start = timecode ~ "-->" ~ #stop = timecode }
-// char = { ASCII_ALPHANUMERIC | "." | "_" | "/" }
-line = { ( !identifier ~ ANY)* }
+
+header = { identifier ~ NEWLINE ~ startstop ~ NEWLINE }
+
+line = { ( !header ~ ANY)* }
 
 content = { line ~ (NEWLINE ~ line)* }
-header = { identifier ~ startstop }
-
-clip = {  header ~ NEWLINE ~ content }
 
 
-file = { SOI ~ NEWLINE* ~
+clip = {  header ~ content }
+
+start = { NEWLINE* }
+
+file = { SOI ~
     (clip)* ~ NEWLINE* ~
     EOI }
-
-// file = { SOI ~ 
-    // ((startstop | identifier | content)? ~ NEWLINE)* ~
-    // EOI }
-
-// file = { SOI ~ 
-//         ((header | content)? ~ NEWLINE)* ~
-//         EOI }
