@@ -12,6 +12,8 @@ use docx_rust::{
 use pest::Parser;
 use pest_derive::Parser;
 
+use strip_bom::*;
+
 #[derive(Parser)]
 #[grammar = "srt.pest"]
 pub struct SRTParser;
@@ -127,9 +129,18 @@ pub struct Document {
 
 impl Document {
     fn from_srt(path: PathBuf) -> Document {
+        // Check if File
+        if !path.is_file() {
+            eprintln!("The input file was not found.")
+        }
+
         let unparsed_file = fs::read_to_string(path).expect("cannot read file");
 
-        let file = SRTParser::parse(Rule::file, &unparsed_file)
+        // Remove the BOM if any
+        // Strip BOM
+        let safe_string: &str = &unparsed_file.strip_bom();
+
+        let file = SRTParser::parse(Rule::file, &safe_string)
             .expect("unsuccessful parse") // unwrap the parse result
             .next()
             .unwrap(); // get and unwrap the `file` rule; never fails
@@ -212,12 +223,14 @@ pub fn make_document(doc: Document) -> DocxResult<()> {
     let mut docx = Docx::default();
 
     let size: isize = 20;
+
     // Create a new paragraph style called `TestStyle`
     docx.styles.push(
         Style::new(StyleType::Paragraph, "timestamp")
             .name("Time Stamp")
             .character(CharacterProperty::default().color(0xA6A6A6).size(size)),
     );
+
     // Main Content Style
     docx.styles.push(
         Style::new(StyleType::Paragraph, "maincontent")
@@ -262,11 +275,13 @@ pub fn make_document(doc: Document) -> DocxResult<()> {
 
     docx.write_file("hello_world.docx")?;
 
+    println!("DOCX File Created!");
+
     Ok(())
 }
 
 fn main() {
-    let p = PathBuf::from("1.srt");
+    let p = PathBuf::from("023.srt");
     let doc = Document::from_srt(p);
 
     doc.to_docx();

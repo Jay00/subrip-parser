@@ -532,6 +532,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d66dc143e6b11c1eddc06d5c423cfc97062865baf299914ab64caa38182078fe"
 
 [[package]]
+name = "strip_bom"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "20cecc5f9998340da802809fe89e8a769b192960cf4dd77fccd9da7f60821d33"
+
+[[package]]
 name = "subrip-parser"
 version = "0.1.0"
 dependencies = [
@@ -539,6 +545,7 @@ dependencies = [
  "docx-rust",
  "pest",
  "pest_derive",
+ "strip_bom",
 ]
 
 [[package]]

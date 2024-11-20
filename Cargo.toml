@@ -10,3 +10,4 @@ pest = "2.7.14"
 pest_derive = { version = "2.7.14", features = ["grammar-extras"] }
 docx-rs = "0.4.17"
 docx-rust = "0.1.8"
+strip_bom = "1.0.0"
